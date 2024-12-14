@@ -51,7 +51,7 @@ def user_response_data(user_base_data):
 
 @pytest.fixture
 def login_request_data():
-    return {"email": "john_doe_123@emai.com", "password": "SecurePassword123!"}
+    return {"email": "john_doe_123@emai.com", "password": "SecurePassword123!@"}
 
 # Tests for UserBase
 def test_user_base_valid(user_base_data):
