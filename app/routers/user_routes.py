@@ -68,6 +68,7 @@ async def get_user(user_id: UUID, request: Request, db: AsyncSession = Depends(g
         last_login_at=user.last_login_at,
         created_at=user.created_at,
         updated_at=user.updated_at,
+        is_professional=user.is_professional,
         links=create_user_links(user.id, request)  
     )
 
@@ -105,6 +106,7 @@ async def update_user(user_id: UUID, user_update: UserUpdate, request: Request, 
         linkedin_profile_url=updated_user.linkedin_profile_url,
         created_at=updated_user.created_at,
         updated_at=updated_user.updated_at,
+        is_professional=updated_user.is_professional,
         links=create_user_links(updated_user.id, request)
     )
 
@@ -161,6 +163,7 @@ async def create_user(user: UserCreate, request: Request, db: AsyncSession = Dep
         last_login_at=created_user.last_login_at,
         created_at=created_user.created_at,
         updated_at=created_user.updated_at,
+        is_professional=created_user.is_professional,
         links=create_user_links(created_user.id, request)
     )
 
@@ -179,7 +182,7 @@ async def list_users(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Parameters 'skip' and 'limit' must be non-negative integers. Received skip={skip} and limit={limit}."
         )
-    
+        
     total_users = await UserService.count(db)
     users = await UserService.list_users(db, skip, limit)
 
