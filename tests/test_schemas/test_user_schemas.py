@@ -2,7 +2,7 @@ import uuid
 import pytest
 from pydantic import ValidationError
 from datetime import datetime
-from app.schemas.user_schemas import UserBase, UserCreate, UserUpdate, UserResponse, UserListResponse, LoginRequest
+from app.schemas.user_schemas import UserBase, UserCreate, UserUpdate, UserResponse, UserListResponse, LoginRequest, validate_password_complexity
 
 # Fixtures for common test data
 @pytest.fixture
@@ -108,3 +108,31 @@ def test_user_base_url_invalid(url, user_base_data):
     user_base_data["profile_picture_url"] = url
     with pytest.raises(ValidationError):
         UserBase(**user_base_data)
+
+@pytest.mark.parametrize("password, expected", [
+    # Valid passwords
+    ("Valid@123", True),  # Contains special character, uppercase, lowercase, and digit
+    ("Strong$Pass2024", True),  # Contains special character, uppercase, lowercase, and digit
+    ("P@ssw0rd1234", True),  # Contains special character, uppercase, lowercase, and digit
+    ("Comp!ex123", True),  # Contains special character, uppercase, lowercase, and digit
+    
+    # Invalid passwords
+    ("NoSpecial123", False),  # No special character
+    ("Short1!", False),  # Too short (7 characters)
+    ("onlyletters@", False),  # No digits
+    ("12345678!", False),  # No uppercase, only numbers
+    ("password!", False),  # No uppercase, no digit
+    ("UPPERCASE123", False),  # No lowercase, missing special character
+    ("lowercase@123", False),  # No uppercase
+    ("1234abcd@", False),  # Missing uppercase letter
+    ("abcd!1234", False),  # Missing uppercase letter
+    ("uppercase#123", False),  # Missing lowercase letter
+    ("password", False),  # Missing special character, digit, and uppercase
+    ("@!#&", False),  # Too short, no digits, no uppercase, no lowercase
+])
+def test_validate_password_complexity(password, expected):
+    if expected:
+        assert validate_password_complexity(password) == password
+    else:
+        with pytest.raises(ValueError):
+            validate_password_complexity(password)
