@@ -17,6 +17,21 @@ def validate_url(url: Optional[str]) -> Optional[str]:
         raise ValueError('Invalid URL format')
     return url
 
+# Password complexity check function
+def validate_password_complexity(password: str) -> str:
+    if len(password) < 8:
+        raise ValueError("Password must be at least 8 characters long.")
+    if not re.search(r"[A-Z]", password):
+        raise ValueError("Password must contain at least one uppercase letter.")
+    if not re.search(r"[a-z]", password):
+        raise ValueError("Password must contain at least one lowercase letter.")
+    if not re.search(r"\d", password):
+        raise ValueError("Password must contain at least one digit.")
+    if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
+        raise ValueError("Password must contain at least one special character.")
+    return password
+
+
 class UserBase(BaseModel):
     email: EmailStr = Field(..., example="john.doe@example.com")
     nickname: Optional[str] = Field(None, min_length=3, pattern=r'^[\w-]+$', example=generate_nickname())
@@ -26,16 +41,18 @@ class UserBase(BaseModel):
     profile_picture_url: Optional[str] = Field(None, example="https://example.com/profiles/john.jpg")
     linkedin_profile_url: Optional[str] =Field(None, example="https://linkedin.com/in/johndoe")
     github_profile_url: Optional[str] = Field(None, example="https://github.com/johndoe")
+    is_professional: Optional[bool] = Field(default=False, example=True)
     role: UserRole
 
     _validate_urls = validator('profile_picture_url', 'linkedin_profile_url', 'github_profile_url', pre=True, allow_reuse=True)(validate_url)
- 
+
     class Config:
         from_attributes = True
 
 class UserCreate(UserBase):
     email: EmailStr = Field(..., example="john.doe@example.com")
     password: str = Field(..., example="Secure*1234")
+    _validate_password = validator('password', pre=True, allow_reuse=True)(validate_password_complexity)
 
 class UserUpdate(UserBase):
     email: Optional[EmailStr] = Field(None, example="john.doe@example.com")
@@ -48,6 +65,7 @@ class UserUpdate(UserBase):
     github_profile_url: Optional[str] = Field(None, example="https://github.com/johndoe")
     role: Optional[str] = Field(None, example="AUTHENTICATED")
 
+
     @root_validator(pre=True)
     def check_at_least_one_value(cls, values):
         if not any(values.values()):
@@ -57,7 +75,7 @@ class UserUpdate(UserBase):
 class UserResponse(UserBase):
     id: uuid.UUID = Field(..., example=uuid.uuid4())
     email: EmailStr = Field(..., example="john.doe@example.com")
-    nickname: Optional[str] = Field(None, min_length=3, pattern=r'^[\w-]+$', example=generate_nickname())    
+    nickname: Optional[str] = Field(None, min_length=3, pattern=r'^[\w-]+$', example=generate_nickname())
     is_professional: Optional[bool] = Field(default=False, example=True)
     role: UserRole
 
@@ -74,8 +92,8 @@ class UserListResponse(BaseModel):
         "id": uuid.uuid4(), "nickname": generate_nickname(), "email": "john.doe@example.com",
         "first_name": "John", "bio": "Experienced developer", "role": "AUTHENTICATED",
         "last_name": "Doe", "bio": "Experienced developer", "role": "AUTHENTICATED",
-        "profile_picture_url": "https://example.com/profiles/john.jpg", 
-        "linkedin_profile_url": "https://linkedin.com/in/johndoe", 
+        "profile_picture_url": "https://example.com/profiles/john.jpg",
+        "linkedin_profile_url": "https://linkedin.com/in/johndoe",
         "github_profile_url": "https://github.com/johndoe"
     }])
     total: int = Field(..., example=100)
