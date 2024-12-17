@@ -139,3 +139,61 @@ async def test_update_user_role(db_session: AsyncSession, user: User):
     await db_session.commit()
     await db_session.refresh(user)
     assert user.role == UserRole.ADMIN, "Role update should persist correctly in the database"
+
+
+#New tests
+@pytest.mark.asyncio
+async def test_verify_already_verified_email(db_session: AsyncSession, user: User):
+    """
+    Tests verifying an already verified email does not cause issues.
+    """
+    user.verify_email()
+    await db_session.commit()
+    await db_session.refresh(user)
+    assert user.email_verified, "Email should remain verified"
+
+    # Call verify_email again
+    user.verify_email()
+    await db_session.commit()
+    await db_session.refresh(user)
+    assert user.email_verified, "Email should remain verified after re-verification"
+
+@pytest.mark.asyncio
+async def test_lock_already_locked_account(db_session: AsyncSession, user: User):
+    """
+    Tests that locking an already locked account does not cause issues.
+    """
+    user.lock_account()
+    await db_session.commit()
+    await db_session.refresh(user)
+    assert user.is_locked, "Account should be locked"
+
+    # Call lock_account again
+    user.lock_account()
+    await db_session.commit()
+    await db_session.refresh(user)
+    assert user.is_locked, "Account should remain locked after re-locking"
+
+@pytest.mark.asyncio
+async def test_unlock_already_unlocked_account(db_session: AsyncSession, user: User):
+    """
+    Tests that unlocking an already unlocked account does not cause issues.
+    """
+    assert not user.is_locked, "Account should initially be unlocked"
+
+    # Call unlock_account again
+    user.unlock_account()
+    await db_session.commit()
+    await db_session.refresh(user)
+    assert not user.is_locked, "Account should remain unlocked after re-unlocking"
+
+@pytest.mark.asyncio
+async def test_delete_user(db_session: AsyncSession, user: User):
+    """
+    Tests that a user can be deleted from the database.
+    """
+    await db_session.delete(user)
+    await db_session.commit()
+
+    deleted_user = await db_session.get(User, user.id)
+    assert deleted_user is None, "User should be deleted from the database"

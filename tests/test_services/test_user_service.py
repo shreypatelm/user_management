@@ -1,6 +1,8 @@
 from builtins import range
+from datetime import datetime, timedelta
 import pytest
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.dependencies import get_settings
 from app.models.user_model import User, UserRole
 from app.services.user_service import UserService
@@ -161,3 +163,52 @@ async def test_unlock_user_account(db_session, locked_user):
     assert unlocked, "The account should be unlocked"
     refreshed_user = await UserService.get_by_id(db_session, locked_user.id)
     assert not refreshed_user.is_locked, "The user should no longer be locked"
+    
+
+
+#More test cases
+# Test verifying email with an invalid token
+async def test_verify_email_invalid_token(db_session, user):
+    result = await UserService.verify_email_with_token(db_session, user.id, "invalid_token")
+    assert result is False, "Invalid token should not verify the email"
+
+# Test resetting password for non-existent user
+async def test_reset_password_non_existent_user(db_session):
+    reset_success = await UserService.reset_password(db_session, "non-existent-id", "ValidNewPassword123!")
+    assert reset_success is False, "Password reset should fail for non-existent user"
+
+
+# Test preventing login after timeout
+async def test_login_timeout_prevention(db_session, locked_user):
+    await UserService.unlock_user_account(db_session, locked_user.id)
+    locked_user.failed_login_attempts = 0
+    locked_user.is_locked = False
+    locked_user.last_failed_login = datetime.utcnow() - timedelta(minutes=5)
+    await db_session.commit()
+
+    result = await UserService.login_user(db_session, locked_user.email, "CorrectPassword123!")
+    assert result is None, "Login should fail after the timeout due to temporary lock"
+
+# Test invalid nickname handling
+async def test_generate_nickname_invalid():
+    with pytest.raises(Exception):
+        generate_nickname(source="invalid_source")  # Simulate invalid source for nickname
+
+# Test nickname generation for uniqueness
+async def test_generate_unique_nickname():
+    nickname1 = generate_nickname()
+    nickname2 = generate_nickname()
+    assert nickname1 != nickname2, "Generated nicknames should be unique"
+    assert len(nickname1) > 0 and len(nickname2) > 0, "Generated nicknames should not be empty"
+
+# Test creating a user with an email that already exists
+async def test_create_user_with_duplicate_email(db_session, email_service, user):
+    user_data = {
+        "nickname": "NewNickname",
+        "email": user.email,  # Existing user's email
+        "password": "AnotherValidPassword123!",
+        "role": UserRole.AUTHENTICATED.name,
+    }
+    duplicate_user = await UserService.create(db_session, user_data, email_service)
+    assert duplicate_user is None, "Creating a user with duplicate email should fail"
+    

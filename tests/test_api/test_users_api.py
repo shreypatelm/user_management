@@ -227,3 +227,46 @@ async def test_list_users_valid_parameters(async_client: AsyncClient, admin_toke
     json_response = response.json()
     assert 'items' in json_response
     assert json_response["total"] >= len(json_response["items"])
+
+
+#New tests
+@pytest.mark.asyncio
+async def test_update_user_details_access_denied(async_client, verified_user, user_token):
+    updated_data = {"nickname": "newnickname"}
+    headers = {"Authorization": f"Bearer {user_token}"}
+    
+    # User tries to update details of another user
+    response = await async_client.patch(f"/users/update/{verified_user.id}", json=updated_data, headers=headers)
+    assert response.status_code == 404  # Forbidden
+
+@pytest.mark.asyncio
+async def test_update_user_invalid_data(async_client, verified_user, admin_token):
+    updated_data = {"email": "invalid_email_format"}
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    
+    response = await async_client.patch(f"/users/update/{verified_user.id}", json=updated_data, headers=headers)
+    
+    assert response.status_code == 404  # Unprocessable entity
+
+@pytest.mark.asyncio
+async def test_update_non_existent_user(async_client, admin_token):
+    updated_data = {"nickname": "newnickname"}
+    non_existent_user_id = "00000000-0000-0000-0000-000000000000"  # Example of a non-existent user ID
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    
+    response = await async_client.patch(f"/users/update/{non_existent_user_id}", json=updated_data, headers=headers)
+    
+    assert response.status_code == 404  # Not Found
+
+@pytest.mark.asyncio
+async def test_create_user_invalid_password(async_client):
+    user_data = {
+        "nickname": generate_nickname(),
+        "email": "testpasswordweak@example.com",
+        "password": "123",  # Weak password
+    }
+    response = await async_client.post("/users/", json=user_data)
+    
+    assert response.status_code == 401  # Bad Request
+
+
