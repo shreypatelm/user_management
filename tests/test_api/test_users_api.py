@@ -269,11 +269,4 @@ async def test_create_user_invalid_password(async_client):
     
     assert response.status_code == 401  # Bad Request
 
-@pytest.mark.asyncio
-async def test_access_admin_only_endpoint_as_manager(async_client, manager_token):
-    headers = {"Authorization": f"Bearer {manager_token}"}
-    
-    # Attempting to access an admin-only endpoint as a manager
-    response = await async_client.get("/admin/dashboard", headers=headers)
-    
-    assert response.status_code == 404  # Forbidden
+

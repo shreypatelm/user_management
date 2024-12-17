@@ -136,4 +136,58 @@ def test_validate_password_complexity(password, expected):
     else:
         with pytest.raises(ValueError):
             validate_password_complexity(password)
-            
+
+
+#More test case
+def test_user_create_missing_password(user_base_data):
+    with pytest.raises(ValidationError):
+        UserCreate(**user_base_data)
+
+def test_user_create_weak_password(user_base_data):
+    user_base_data["password"] = "weak"
+    with pytest.raises(ValueError):
+        UserCreate(**user_base_data)
+
+@pytest.mark.parametrize("missing_field", ["email", "password"])
+def test_login_request_missing_fields(missing_field, login_request_data):
+    login_request_data.pop(missing_field)
+    with pytest.raises(ValidationError):
+        LoginRequest(**login_request_data)
+        
+def test_user_base_url_empty_string(user_base_data):
+    user_base_data["profile_picture_url"] = ""
+    with pytest.raises(ValidationError):
+        UserBase(**user_base_data)
+
+@pytest.mark.parametrize("url", ["mailto://email@example.com", "data:image/png;base64"])
+def test_user_base_url_invalid_protocols(url, user_base_data):
+    user_base_data["profile_picture_url"] = url
+    with pytest.raises(ValidationError):
+        UserBase(**user_base_data)
+
+@pytest.mark.parametrize("password", [
+    "Ab1!",  # Minimum length, valid
+    "Ab1"    # Too short
+])
+def test_password_complexity_edge_length(password):
+    if len(password) >= 8:  # Adjust based on your minimum length
+        assert validate_password_complexity(password) == password
+    else:
+        with pytest.raises(ValueError):
+            validate_password_complexity(password)
+
+
+@pytest.mark.parametrize("password", [
+    "ONLYUPPERCASE1234",  # Missing lowercase and special
+    "onlylowercase1234",  # Missing uppercase and special
+    "OnlylowerUPPER",     # Missing digits and special
+])
+def test_password_complexity_missing_character_types(password):
+    with pytest.raises(ValueError):
+        validate_password_complexity(password)
+
+def test_user_base_multiple_invalid_fields(user_base_data):
+    user_base_data["nickname"] = "a"  # Too short
+    user_base_data["email"] = "invalidemail"  # Invalid format
+    with pytest.raises(ValidationError):
+        UserBase(**user_base_data)
