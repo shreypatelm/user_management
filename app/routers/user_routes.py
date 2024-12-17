@@ -24,6 +24,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Response, status, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
+import sqlalchemy as sa
 from app.dependencies import get_current_user, get_db, get_email_service, require_role
 from app.schemas.pagination_schema import EnhancedPagination
 from app.schemas.token_schema import TokenResponse
@@ -33,6 +34,8 @@ from app.services.jwt_service import create_access_token
 from app.utils.link_generation import create_user_links, generate_pagination_links
 from app.dependencies import get_settings
 from app.services.email_service import EmailService
+from app.services.notification_service import NotificationService
+
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 settings = get_settings()
@@ -255,3 +258,97 @@ async def verify_email(user_id: UUID, token: str, db: AsyncSession = Depends(get
     if await UserService.verify_email_with_token(db, user_id, token):
         return {"message": "Email verified successfully"}
     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired verification token")
+
+
+
+#new feature added of user_profile_update
+@router.put("/users/update-profile", response_model=UserResponse, tags=["User Profile Management"])
+async def update_user_profile(
+    request: Request,
+    bio: str = None,  # Optionally update bio
+    nickname: str = None,  # Optionally update nickname
+    first_name: str = None,  # Optionally update first name
+    last_name: str = None,  # Optionally update last name
+    db: AsyncSession = Depends(get_db),
+    token: str = Depends(oauth2_scheme),  # OAuth token for authentication
+    current_user: dict = Depends(require_role(["AUTHENTICATED"]))  # Ensure the user is authenticated
+):
+    """
+    Manually update the user's profile information (bio, nickname, first name, last name).
+    
+    - **bio**: bio for the user.
+    - **nickname**: nickname for the user.
+    - **first_name**: first name for the user.
+    - **last_name**: last name for the user.
+    """
+    # Get the current user info from the token
+    current_user_info = get_current_user(token)
+    user_email = current_user_info['user_email']
+
+    # Fetch the user from the database
+    user = await UserService.get_by_email(db, user_email)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Check if the new nickname is already taken (if it's being changed)
+    if nickname and nickname != user.nickname:
+        existing_user_with_nickname = await UserService.get_by_nickname(db, nickname)
+        if existing_user_with_nickname:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Nickname already exists")
+
+    # Prepare the fields to update (only include those provided in the request)
+    user_data = {}
+    if bio:
+        user_data["bio"] = bio
+    if nickname:
+        user_data["nickname"] = nickname
+    if first_name:
+        user_data["first_name"] = first_name
+    if last_name:
+        user_data["last_name"] = last_name
+
+    # Update the user with the provided data
+    updated_user = await UserService.update(db, user.id, user_data)
+
+    # Return the updated user profile info along with HATEOAS links
+    return UserResponse(
+        bio=updated_user.bio,
+        first_name=updated_user.first_name,
+        last_name=updated_user.last_name,
+        nickname=updated_user.nickname,
+    )
+
+
+
+#new feautre added of user_is_professional
+@router.patch("/users/professional/{nickname}", response_model=UserResponse, tags=["User Management Requires (Admin Roles)"])
+async def update_is_professional(
+    nickname: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(require_role(["ADMIN"]))  # Only Admin can access this
+):
+    """
+    Update the user's is_professional status to True based on their nickname.
+
+    Args:
+        nickname: The nickname of the user.
+        db: Dependency to get the database session.
+        current_user: Dependency to check the current user's role (only admin can perform this).
+
+    Returns:
+        UserResponse: The updated user information.
+    """
+    # Fetch the user by nickname
+    user = await UserService.get_by_nickname(db, nickname)
+    
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    
+    # Update the user's is_professional field to True
+    user.is_professional = True
+    updated_user = await UserService.update(db, user.id, {"is_professional": True})
+    
+    return UserResponse(
+        id=updated_user.id,
+        is_professional=updated_user.is_professional,
+    )

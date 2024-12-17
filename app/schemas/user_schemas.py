@@ -99,4 +99,24 @@ class UserListResponse(BaseModel):
     total: int = Field(..., example=100)
     page: int = Field(..., example=1)
     size: int = Field(..., example=10)
-    
+
+
+
+#for user_profile_update
+class UserBaseUpdate(BaseModel):
+    nickname: Optional[str] = None  # Allow updating the nickname
+    first_name: Optional[str] = None  # Allow updating the first name
+    last_name: Optional[str] = None  # Allow updating the last name
+    bio: Optional[str] = None  # Allow updating the bio
+
+    class Config:
+        orm_mode = True  # To support SQLAlchemy models
+
+
+#for user_update_to_professional
+class UserUpdateProfessional(BaseModel):
+    nickname: str
+    is_professional: bool = True  # Default value should be True as the admin sets this
+
+    class Config:
+        orm_mode = True

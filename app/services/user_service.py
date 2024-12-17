@@ -13,6 +13,7 @@ from app.utils.nickname_gen import generate_nickname
 from app.utils.security import generate_verification_token, hash_password, verify_password
 from uuid import UUID
 from app.services.email_service import EmailService
+from app.services.notification_service import NotificationService
 from app.models.user_model import UserRole
 import logging
 
@@ -199,3 +200,38 @@ class UserService:
             await session.commit()
             return True
         return False
+    
+
+    #new feature for user_profile_updation
+    @classmethod
+    async def upgrade_to_professional(cls, session: AsyncSession, user_id: UUID, notification_service: NotificationService) -> Optional[User]:
+        try:
+            # Fetch the user
+            user = await cls.get_by_id(session, user_id)
+            if not user:
+                logger.error(f"User with ID {user_id} not found.")
+                return None
+
+            # Ensure the user isn't already a professional
+            if user.is_professional:
+                logger.info(f"User {user_id} is already a professional.")
+                return user
+
+            # Upgrade the user to professional status
+            user.is_professional = True
+            user.professional_status_updated_at = datetime.now(timezone.utc)
+
+            # Commit changes to the database
+            session.add(user)
+            await session.commit()
+
+            # Send notification
+            notification_message = f"Congratulations {user.nickname}, you have been upgraded to professional status!"
+            await notification_service.send_notification(user.email, notification_message)
+
+            logger.info(f"User {user_id} upgraded to professional status successfully.")
+            return user
+        except Exception as e:
+            logger.error(f"Error during user upgrade: {e}")
+            return None
+        

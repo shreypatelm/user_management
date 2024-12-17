@@ -136,3 +136,4 @@ def test_validate_password_complexity(password, expected):
     else:
         with pytest.raises(ValueError):
             validate_password_complexity(password)
+            
